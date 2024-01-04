@@ -9,7 +9,7 @@ set -eu
 function parse_parameters() {
     while (($#)); do
         case $1 in
-            all | binutils | deps | kernel | llvm) action=$1 ;;
+            all | binutils | deps | kernel | llvm | upload) action=$1 ;;
             *) exit 33 ;;
         esac
         shift
@@ -21,20 +21,21 @@ function do_all() {
     do_llvm
     do_binutils
     do_kernel
+    do_upload
 }
 
 function do_binutils() {
     "$base"/build-binutils.py \
         --install-folder "$install" \
         --show-build-commands \
-        --targets x86_64
+        --targets arm aarch64 x86_64
 }
 
 function do_deps() {
     # We only run this when running on GitHub Actions
     [[ -z ${GITHUB_ACTIONS:-} ]] && return 0
 
-    sudo apt-get install -y --no-install-recommends \
+    apt-get install -y --no-install-recommends \
         bc \
         bison \
         ca-certificates \
@@ -93,19 +94,45 @@ function do_llvm() {
     [[ -n ${GITHUB_ACTIONS:-} ]] && extra_args+=(--no-ccache)
 
     "$base"/build-llvm.py \
-        --assertions \
-        --build-stage1-only \
-        --build-target distribution \
-        --check-targets clang lld llvm \
         --install-folder "$install" \
-        --install-target distribution \
-        --projects clang lld \
         --quiet-cmake \
-        --ref release/17.x \
         --shallow-clone \
         --show-build-commands \
-        --targets X86 \
+        --targets ARM AArch64 X86 \
+        --vendor-string "Gonon" \
         "${extra_args[@]}"
+}
+
+function do_upload() {
+	cd $install
+	
+	#clean unused file
+	find -name *.cmake -delete
+	find -name *.la -delete
+	find -name *.a -delete
+	rm -rf stripp-* .file-idx
+	
+	CLANG_VERSION="$(${install}/bin/clang --version | head -n1 | cut -d' ' -f4)"
+	CLANG_CONFIG="$(${install}/bin/clang -v 2>&1)"
+	BINUTILS_VERSION="$(${install}/bin/aarch64-linux-gnu-addr2line --version | head -n1 | cut -d' ' -f5)"
+	DATE=$(date +%Y%m%d)
+	COMPRESSED_NAME="GononClang-${CLANG_VERSION}-${DATE}"
+	BUILD_TAG="${CLANG_VERSION}-release"
+	MESSAGE=${COMPRESSED_NAME}
+	
+	git config --global user.name github-actions[bot]
+	git config --global user.email github-actions[bot]@users.noreply.github.com
+	git clone https://nurfaizfy:"${GITHUB_TOKEN}"@github.com/Gonon-Kernel/gonon-clang ${base}/clang-repo -b main
+	
+	cd ${base}/clang-repo
+	git commit --allow-empty -as \
+		-m "${MESSAGE}" \
+		-m "${CLANG_CONFIG}"
+	cp -rf ${install}/* .
+	tar -czvf "${COMPRESSED_NAME}.tar.gz" *
+	echo ${COMPRESSED_NAME}
+	hub release create -a ${COMPRESSED_NAME}.tar.gz -m "${MESSAGE}" ${BUILD_TAG}
+	cd -
 }
 
 parse_parameters "$@"

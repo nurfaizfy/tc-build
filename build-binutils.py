@@ -78,13 +78,16 @@ if args.binutils_folder:
         raise RuntimeError(f"Provided binutils source ('{bsm.location}') does not exist?")
 else:
     # Turns (2, 40, 0) into 2.40 and (2, 40, 1) into 2.40.1 to follow tarball names
-    folder_name = 'binutils-' + '.'.join(str(x) for x in LATEST_BINUTILS_RELEASE if x)
+    #folder_name = 'binutils-' + '.'.join(str(x) for x in LATEST_BINUTILS_RELEASE if x)
 
-    bsm.location = Path(tc_build_folder, 'src', folder_name)
-    bsm.tarball.base_download_url = 'https://sourceware.org/pub/binutils/releases'
-    bsm.tarball.local_location = bsm.location.with_name(f"{folder_name}.tar.xz")
-    bsm.tarball_remote_checksum_name = 'sha512.sum'
-    bsm.prepare()
+    bsm.location = Path(tc_build_folder, 'src', 'binutils')
+    bsd = tc_build.binutils.BinutilsSourceDownloader(bsm.location)
+    bsd.download()
+    bsd.update()
+    #bsm.tarball.base_download_url = 'https://sourceware.org/pub/binutils/releases'
+    #bsm.tarball.local_location = bsm.location.with_name(f"{folder_name}.tar.xz")
+    #bsm.tarball_remote_checksum_name = 'sha512.sum'
+    #bsm.prepare()
 
 if args.build_folder:
     build_folder = Path(args.build_folder).resolve()

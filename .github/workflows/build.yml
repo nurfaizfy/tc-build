@@ -1,11 +1,20 @@
-name: Build test
+name: Build Toolchain
+
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+
+env:
+  GITHUB_EMAIL: ${{ secrets.EMAIL }}
+  GITHUB_TOKEN: ${{ secrets.API_TOKEN_GITHUB }}
+  GITHUB_USER: ${{ secrets.USERNAME }}
+  BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  CHAT_ID: ${{ secrets.CHAT }}
+  
 jobs:
-  build-test:
+  build:
     runs-on: ubuntu-latest
+    container:
+      image: nurfaizfy/ubuntu:clang
     steps:
     - uses: actions/checkout@v4
     - name: Install dependencies
@@ -14,5 +23,5 @@ jobs:
       run: bash ci.sh llvm
     - name: Build binutils
       run: bash ci.sh binutils
-    - name: Build kernel
-      run: bash ci.sh kernel
+    - name: Upload build
+      run: bash ci.sh upload

@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 import platform
+import subprocess
 
 from tc_build.builder import Builder
 from tc_build.source import SourceManager
@@ -26,6 +27,7 @@ class BinutilsBuilder(Builder):
             '--enable-threads',
             '--quiet',
             '--with-system-zlib',
+            '--with-pkgversion=Gonon Binutils',
         ]
         # gprofng uses glibc APIs that might not be available on musl
         if tc_build.utils.libc_is_musl():
@@ -229,3 +231,33 @@ class BinutilsSourceManager(SourceManager):
 
         self.tarball.extract(self.location)
         tc_build.utils.print_info(f"Source sucessfully prepared in {self.location}")
+        
+class BinutilsSourceDownloader:
+    
+    def __init__(self, repo):
+        self.repo = repo
+        
+    def download(self):
+        if self.repo.exists():
+            return
+
+        tc_build.utils.print_header('Downloading Binutils')
+
+        git_clone = ['git', 'clone', '--depth=1', 'git://sourceware.org/git/binutils-gdb.git', '-b', 'master', self.repo]
+
+        subprocess.run(git_clone, check=True)
+        
+    def update(self):
+        tc_build.utils.print_header('Updating Binutils')
+
+        self.git(['pull', '--rebase', 'origin', 'master'])
+    
+    def git(self, cmd, capture_output=False):
+        return subprocess.run(['git', *cmd],
+                              capture_output=capture_output,
+                              check=True,
+                              cwd=self.repo,
+                              text=True)
+                              
+    def git_capture(self, cmd):
+        return self.git(cmd, capture_output=True).stdout.strip()
